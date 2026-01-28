@@ -1,0 +1,24 @@
+# =============================================================================
+# requirements.txt
+# =============================================================================
+# PURPOSE:
+#   Lists all Python packages needed to run this application.
+#   
+# HOW TO USE:
+#   1. Open terminal in this folder
+#   2. Run: pip install -r requirements.txt
+#   
+# WHAT EACH PACKAGE DOES:
+#   - streamlit: The web framework for our UI
+#   - pandas: Data manipulation (DataFrames, CSV reading)
+#   - openpyxl: Excel file support for pandas
+#
+# NOTE:
+#   sqlite3 is built into Python, no need to install!
+# =============================================================================
+
+streamlit>=1.30.0
+pandas>=2.0.0
+openpyxl>=3.1.0
+
+
