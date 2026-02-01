@@ -19,6 +19,7 @@ from database import (
     load_handshakes,
     delete_handshake
 )
+from utils.styling import apply_minimal_style
 
 # -----------------------------------------------------------------------------
 # PAGE CONFIGURATION
@@ -26,15 +27,19 @@ from database import (
 st.set_page_config(
     page_title="Handshakes - Pinball V3",
     page_icon="🤝",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Apply minimal styling
+apply_minimal_style()
 
 init_db()
 
 # -----------------------------------------------------------------------------
 # PAGE HEADER
 # -----------------------------------------------------------------------------
-st.title("🤝 Handshakes")
+st.title("Handshakes")
 st.caption("View and manage bank-to-invoice matches.")
 
 # -----------------------------------------------------------------------------
@@ -43,22 +48,22 @@ st.caption("View and manage bank-to-invoice matches.")
 handshakes_df = load_handshakes()
 
 if len(handshakes_df) == 0:
-    st.info("📭 No handshakes created yet.")
+    st.info("No handshakes created yet")
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🔗 Go to Match Page", use_container_width=True):
-            st.switch_page("pages/3_🔗_Match.py")
+        if st.button("Go to Match Page", use_container_width=True):
+            st.switch_page("pages/3_Match.py")
     with col2:
-        if st.button("📥 Import Data First", use_container_width=True):
-            st.switch_page("pages/2_📥_Import.py")
+        if st.button("Import Data First", use_container_width=True):
+            st.switch_page("pages/2_Import.py")
     
     st.stop()
 
 # -----------------------------------------------------------------------------
 # SEARCH AND FILTER
 # -----------------------------------------------------------------------------
-st.write("### 🔍 Search & Filter")
+st.write("### Search & Filter")
 
 col1, col2 = st.columns([3, 1])
 
@@ -80,11 +85,14 @@ with col2:
 filtered_df = handshakes_df.copy()
 
 if search:
-    filtered_df = filtered_df[
-        (filtered_df['invoice_number'].str.contains(search, case=False, na=False)) |
-        (filtered_df['bank_desc'].str.contains(search, case=False, na=False)) |
-        (filtered_df['note'].fillna('').str.contains(search, case=False, na=False))
-    ]
+    search_lower = search.lower()
+    def handshake_matches(row):
+        for col in ['invoice_number', 'bank_desc', 'note', 'artist', 'event_name', 'venue']:
+            val = row.get(col)
+            if pd.notna(val) and search_lower in str(val).lower():
+                return True
+        return False
+    filtered_df = filtered_df[filtered_df.apply(handshake_matches, axis=1)]
 
 if filter_option == "With Proxy":
     filtered_df = filtered_df[filtered_df['proxy_amount'] != 0]
@@ -97,7 +105,7 @@ elif filter_option == "With Notes":
 # SUMMARY STATS
 # -----------------------------------------------------------------------------
 st.write("---")
-st.write("### 📊 Summary")
+st.write("### Summary")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -120,7 +128,7 @@ with col4:
 # HANDSHAKES LIST
 # -----------------------------------------------------------------------------
 st.write("---")
-st.write(f"### 📋 Matches ({len(filtered_df)} shown)")
+st.write(f"### Matches ({len(filtered_df)} shown)")
 
 if len(filtered_df) == 0:
     st.info("No matches found with current filters.")
@@ -130,33 +138,39 @@ else:
             col1, col2 = st.columns([10, 1])
             
             with col1:
-                # Header line
+                # Header: handshake id, artist, show name, invoice number, currency
+                artist = row.get('artist') or '—'
+                show_name = row.get('event_name') or row.get('venue') or '—'
+                if pd.isna(show_name):
+                    show_name = '—'
                 st.write(
                     f"**#{row['handshake_id']}** | "
-                    f"Bank #{row['bank_id']} → Invoice {row['invoice_number']}"
+                    f"Bank #{row['bank_id']} → Invoice {row['invoice_number']} | "
+                    f"{row['invoice_currency']} {row['invoice_total']:,.2f}"
                 )
+                st.caption(f"Artist: {artist} · Show: {show_name}")
                 
                 # Details in columns
                 col_a, col_b, col_c = st.columns(3)
                 
                 with col_a:
-                    st.caption(f"💳 Bank: {row['bank_currency']} {row['bank_amount_applied']:,.2f}")
-                    st.caption(f"📄 Invoice: {row['invoice_currency']} {row['invoice_total']:,.2f}")
+                    st.caption(f"Bank: {row['bank_currency']} {row['bank_amount_applied']:,.2f}")
+                    st.caption(f"Invoice: {row['invoice_currency']} {row['invoice_total']:,.2f}")
                 
                 with col_b:
                     if row['proxy_amount'] != 0:
-                        st.caption(f"🔧 Proxy: {row['proxy_amount']:,.2f}")
+                        st.caption(f"Proxy: {row['proxy_amount']:,.2f}")
                     total_applied = row['bank_amount_applied'] + row['proxy_amount']
-                    st.caption(f"✅ Applied: {row['bank_currency']} {total_applied:,.2f}")
+                    st.caption(f"Applied: {row['bank_currency']} {total_applied:,.2f}")
                 
                 with col_c:
-                    st.caption(f"📅 {row['created_at']}")
+                    st.caption(f"{row['created_at']}")
                     if row['note']:
-                        st.caption(f"📝 {row['note']}")
+                        st.caption(f"{row['note']}")
             
             with col2:
                 # Delete button
-                if st.button("🗑️", key=f"del_{row['handshake_id']}", help="Delete this match"):
+                if st.button("Delete", key=f"del_{row['handshake_id']}", help="Delete this match"):
                     # Confirmation pattern
                     confirm_key = f"confirm_del_{row['handshake_id']}"
                     if st.session_state.get(confirm_key):
@@ -173,11 +187,11 @@ else:
 # -----------------------------------------------------------------------------
 # EXPORT
 # -----------------------------------------------------------------------------
-st.write("### 📥 Export")
+st.write("### Export")
 
 csv = handshakes_df.to_csv(index=False)
 st.download_button(
-    label="📥 Download All Matches (CSV)",
+    label="Download All Matches (CSV)",
     data=csv,
     file_name=f"handshakes_export_{pd.Timestamp.now().strftime('%Y%m%d')}.csv",
     mime="text/csv"

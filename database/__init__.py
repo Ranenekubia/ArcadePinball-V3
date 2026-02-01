@@ -45,6 +45,7 @@ from .queries import (
     
     # Invoices
     load_invoices,
+    load_invoices_with_show_details,
     load_invoice_items,
     create_invoice,
     check_invoice_exists,

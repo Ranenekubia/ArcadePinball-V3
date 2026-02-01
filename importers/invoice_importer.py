@@ -416,20 +416,25 @@ class InvoiceImporter:
         Try to find the show this invoice belongs to.
         
         MATCHING LOGIC:
-            1. First, try to match by contract number
-            2. If no match, invoice will be "unlinked" (can be linked later)
+            Invoices attach to shows via contract_number. The contract number
+            in the invoice CSV must match the contract_number on a show
+            (shows get contract_number when contracts are imported).
+            We normalize by stripping whitespace so "910516" and " 910516 "
+            match.
         
         RETURNS:
             int or None: show_id if found, None otherwise
         """
-        contract_num = invoice.get('contract_number')
-        
-        if contract_num:
-            # Load shows and find one with matching contract number
-            shows_df = load_shows(filters={'contract_number': contract_num})
-            if len(shows_df) > 0:
-                return int(shows_df.iloc[0]['show_id'])
-        
+        raw = invoice.get('contract_number')
+        if not raw:
+            return None
+        contract_num = str(raw).strip()
+        if not contract_num:
+            return None
+        # Match show by contract_number (set when contracts are imported)
+        shows_df = load_shows(filters={'contract_number': contract_num})
+        if len(shows_df) > 0:
+            return int(shows_df.iloc[0]['show_id'])
         return None
     
     def get_import_summary(self):

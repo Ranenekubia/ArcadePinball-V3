@@ -1,0 +1,4 @@
+Contract Number,Booking Date,Artist,Event,Venue,City,Country,Performance date,Contracted Deal,Total deal Value,Currency,AF,BF,WHT,Hotel buyout,Transport buyout
+900100,2026-02-01,Kerri Chandler,London Warehouse Project,Drumsheds,London,UK,2026-06-05,"Guarantee £5,000 + 50%",5000,GBP,4000,1000,0,0,0
+900101,2026-02-15,Minna,Berlin Techno Night,Berghain,Berlin,Germany,2026-06-12,"Guarantee €3,000",3000,EUR,2500,500,0,200,0
+900102,2026-03-01,Kerri Chandler,Ibiza Opening,DC10,Ibiza,Spain,2026-07-01,"Guarantee €15,000",15000,EUR,12000,3000,19,0,500

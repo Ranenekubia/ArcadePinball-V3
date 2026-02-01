@@ -30,6 +30,7 @@ from database import (
 )
 from importers import BankImporter, ContractImporter, InvoiceImporter
 from config import DB_PATH
+from utils.styling import apply_minimal_style
 
 # -----------------------------------------------------------------------------
 # PAGE CONFIGURATION
@@ -37,8 +38,12 @@ from config import DB_PATH
 st.set_page_config(
     page_title="Import Data - Pinball V3",
     page_icon="📥",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Apply minimal styling
+apply_minimal_style()
 
 # Initialize database
 init_db()
@@ -46,25 +51,25 @@ init_db()
 # -----------------------------------------------------------------------------
 # PAGE HEADER
 # -----------------------------------------------------------------------------
-st.title("📥 Import Data")
+st.title("Import Data")
 st.caption("Upload bank statements, contracts, and invoices")
 
 # -----------------------------------------------------------------------------
 # SECTION 1: BANK STATEMENT IMPORT
 # -----------------------------------------------------------------------------
 st.write("---")
-st.write("### 💳 Bank Statement Import (HSBC)")
+st.write("### Bank Statement Import")
 st.write("Upload your HSBC bank statement CSV file.")
 
 # Show expected format in an expander (collapsed by default)
-with st.expander("ℹ️ Expected Format", expanded=False):
+with st.expander("Expected Format", expanded=False):
     st.code("""
 Date,Type,Description,Paid Out,Paid In,Currency
 2025-07-18,CR,F&B OPERATING ACC ATA INV-16496,,9800,GBP
 2025-10-03,,St Martins Place,800,,GBP
 2025-11-27,CR,Payment for ARC/I25-000002 - Booking Fee,,2000,GBP
     """, language="csv")
-    st.caption("💡 Tip: Make sure to include the Currency column!")
+    st.caption("Tip: Make sure to include the Currency column")
 
 # File uploader for bank statements
 bank_file = st.file_uploader(
@@ -76,7 +81,7 @@ bank_file = st.file_uploader(
 
 # Import button (only shows if file is uploaded)
 if bank_file is not None:
-    if st.button("🚀 Import Bank Transactions", type="primary", use_container_width=True):
+    if st.button("Import Bank Transactions", type="primary", use_container_width=True):
         with st.spinner("Importing bank transactions..."):
             try:
                 # Create importer and run import
@@ -90,26 +95,26 @@ if bank_file is not None:
                     # Show details
                     summary = importer.get_import_summary()
                     if summary['duplicate_count'] > 0:
-                        st.info(f"🔄 Skipped {summary['duplicate_count']} duplicates")
+                        st.info(f"Skipped {summary['duplicate_count']} duplicates")
                 else:
                     st.error(message)
                     
             except Exception as e:
-                st.error(f"❌ Import error: {str(e)}")
+                st.error(f"Import error: {str(e)}")
 
 # -----------------------------------------------------------------------------
 # SECTION 2: CONTRACT IMPORT
 # -----------------------------------------------------------------------------
 st.write("---")
-st.write("### 📋 Contract Import (System One)")
+st.write("### Contract Import")
 st.write("Upload your contract/booking export from System One.")
 
-with st.expander("ℹ️ Expected Format", expanded=False):
+with st.expander("Expected Format", expanded=False):
     st.code("""
 Contract Number,Booking Date,Artist,Event,Venue,City,Country,Performance date,Performance Day,Contracted Deal,Total deal Value,AF,Hotel buyout,Ground buyout,Transport buyout,WHT,BF,BF VAT,Total Settlement for Artist
 910516,2025-07-01,Minna,Hopkins Creek Festival,Taungurung Country,Lima East,Australia,2025-11-08,Saturday,AF $3400 & BF $600,825,6925,0,0,0,Zero,825,,6925
     """, language="csv")
-    st.caption("💡 This will create both Contract and Show records.")
+    st.caption("This will create both Contract and Show records")
 
 contract_file = st.file_uploader(
     "Choose contract CSV/Excel file",
@@ -119,7 +124,7 @@ contract_file = st.file_uploader(
 )
 
 if contract_file is not None:
-    if st.button("🚀 Import Contracts", type="primary", use_container_width=True):
+    if st.button("Import Contracts", type="primary", use_container_width=True):
         with st.spinner("Importing contracts..."):
             try:
                 importer = ContractImporter(contract_file)
@@ -132,23 +137,23 @@ if contract_file is not None:
                     st.error(message)
                     
             except Exception as e:
-                st.error(f"❌ Import error: {str(e)}")
+                st.error(f"Import error: {str(e)}")
 
 # -----------------------------------------------------------------------------
 # SECTION 3: INVOICE IMPORT
 # -----------------------------------------------------------------------------
 st.write("---")
-st.write("### 📄 Invoice Import")
+st.write("### Invoice Import")
 st.write("Upload your invoice export CSV (long format - multiple rows per invoice).")
 
-with st.expander("ℹ️ Expected Format", expanded=False):
+with st.expander("Expected Format", expanded=False):
     st.code("""
 InvoiceNumber,Contract Number,From Entity,AccountCode,Net Amount,VAT Amount,Gross Amount,Payment Bank Details,Currency
 ARC/I25-000002,BKG-2025-001,Arcade Talent Agency Ltd,Booking Fee,2000,0,2000,Arcade Account,GBP
 ARC/I25-000002,BKG-2025-001,Arcade Talent Agency Ltd,Artist Fee,4000,0,4000,Arcade Account,GBP
 ARC/I25-000003,BKG-2025-002,Arcade Talent Agency Ltd,Booking Fee,800,160,960,Arcade Account,GBP
     """, language="csv")
-    st.caption("💡 Multiple rows with the same InvoiceNumber will be grouped together.")
+    st.caption("Multiple rows with the same InvoiceNumber will be grouped together")
 
 invoice_file = st.file_uploader(
     "Choose invoice CSV file",
@@ -158,7 +163,7 @@ invoice_file = st.file_uploader(
 )
 
 if invoice_file is not None:
-    if st.button("🚀 Import Invoices", type="primary", use_container_width=True):
+    if st.button("Import Invoices", type="primary", use_container_width=True):
         with st.spinner("Importing invoices..."):
             try:
                 importer = InvoiceImporter(invoice_file)
@@ -171,65 +176,115 @@ if invoice_file is not None:
                     st.error(message)
                     
             except Exception as e:
-                st.error(f"❌ Import error: {str(e)}")
+                st.error(f"Import error: {str(e)}")
 
 # -----------------------------------------------------------------------------
-# SECTION 4: CURRENT DATA SUMMARY
+# SECTION 4: CURRENT DATA SUMMARY (full schema / all columns)
 # -----------------------------------------------------------------------------
-st.write("---")
-st.write("### 📋 Current Data")
 
-# Load current counts
+# Full-screen state key
+FULLSCREEN_KEY = "import_full_screen"
+MAX_PREVIEW_ROWS = 50
+
+# Load current data (all columns)
 bank_df = load_bank_transactions()
 contracts_df = load_contracts()
 invoices_df = load_invoices()
 shows_df = load_shows()
 
-# Display in columns
-col1, col2, col3, col4 = st.columns(4)
+fullscreen_titles = {
+    "bank": "Bank transactions",
+    "contracts": "Contracts",
+    "invoices": "Invoices",
+    "shows": "Shows",
+}
+dfs = {"bank": bank_df, "contracts": contracts_df, "invoices": invoices_df, "shows": shows_df}
 
-with col1:
-    st.metric("💳 Bank Transactions", len(bank_df))
+# ============================================================================
+# FULL-SCREEN MODE: Show only the selected table, nothing else
+# ============================================================================
+current_full = st.session_state.get(FULLSCREEN_KEY)
+if current_full:
+    title = fullscreen_titles.get(current_full, current_full)
+    full_df = dfs.get(current_full)
+
+    # Header with Exit button
+    col_title, col_exit = st.columns([5, 1])
+    with col_title:
+        st.title(f"📺 {title} — Full Screen")
+    with col_exit:
+        if st.button("✕ Exit", key="exit_fullscreen", use_container_width=True):
+            st.session_state.pop(FULLSCREEN_KEY, None)
+            st.rerun()
+
+    st.write("---")
+
+    # Show full dataframe with large height (all rows, all columns)
+    if full_df is not None and len(full_df) > 0:
+        st.dataframe(full_df, height=700, use_container_width=True, hide_index=True)
+        st.caption(f"Showing all {len(full_df)} rows and all columns.")
+    else:
+        st.info(f"No data in {title} yet.")
+
+    # Stop here - don't render the rest of the page
+    st.stop()
+
+# ============================================================================
+# NORMAL MODE: Show expanders with preview and "View full screen" buttons
+# ============================================================================
+st.write("---")
+st.write("### Current Data")
+st.caption("Full schema shown for each table. Click **View full screen** to see all data. Invoices link to shows via **contract_number**.")
+
+def _open_fullscreen(table_key):
+    st.session_state[FULLSCREEN_KEY] = table_key
+
+with st.expander("Bank transactions — all columns", expanded=False):
+    st.metric("Count", len(bank_df))
     if len(bank_df) > 0:
-        st.dataframe(
-            bank_df[['date', 'description', 'amount', 'currency']].head(3),
-            use_container_width=True,
-            hide_index=True
-        )
+        if st.button("View full screen", key="fs_bank", use_container_width=True):
+            _open_fullscreen("bank")
+            st.rerun()
+        st.dataframe(bank_df.head(MAX_PREVIEW_ROWS), use_container_width=True, hide_index=True)
+    else:
+        st.info("No bank transactions yet. Import a bank CSV above.")
 
-with col2:
-    st.metric("📋 Contracts", len(contracts_df))
+with st.expander("Contracts — all columns", expanded=False):
+    st.metric("Count", len(contracts_df))
     if len(contracts_df) > 0:
-        st.dataframe(
-            contracts_df[['contract_number', 'artist', 'performance_date']].head(3),
-            use_container_width=True,
-            hide_index=True
-        )
+        if st.button("View full screen", key="fs_contracts", use_container_width=True):
+            _open_fullscreen("contracts")
+            st.rerun()
+        st.dataframe(contracts_df.head(MAX_PREVIEW_ROWS), use_container_width=True, hide_index=True)
+    else:
+        st.info("No contracts yet. Import a contract CSV above.")
 
-with col3:
-    st.metric("📄 Invoices", len(invoices_df))
+with st.expander("Invoices — all columns", expanded=True):
+    st.metric("Count", len(invoices_df))
     if len(invoices_df) > 0:
-        st.dataframe(
-            invoices_df[['invoice_number', 'total_gross', 'currency']].head(3),
-            use_container_width=True,
-            hide_index=True
-        )
+        if st.button("View full screen", key="fs_invoices", use_container_width=True):
+            _open_fullscreen("invoices")
+            st.rerun()
+        st.dataframe(invoices_df.head(MAX_PREVIEW_ROWS), use_container_width=True, hide_index=True)
+    else:
+        st.info("No invoices yet. Import an invoice CSV above. Use the same **contract_number** as in your contract/show import so invoices attach to the correct show.")
 
-with col4:
-    st.metric("🎭 Shows", len(shows_df))
+with st.expander("Shows — all columns", expanded=False):
+    st.metric("Count", len(shows_df))
     if len(shows_df) > 0:
-        st.dataframe(
-            shows_df[['artist', 'venue', 'performance_date']].head(3),
-            use_container_width=True,
-            hide_index=True
-        )
+        if st.button("View full screen", key="fs_shows", use_container_width=True):
+            _open_fullscreen("shows")
+            st.rerun()
+        st.dataframe(shows_df.head(MAX_PREVIEW_ROWS), use_container_width=True, hide_index=True)
+    else:
+        st.info("No shows yet. Import contracts first; each contract creates a show with the same contract_number.")
 
 # -----------------------------------------------------------------------------
 # SECTION 5: DATA MANAGEMENT
 # -----------------------------------------------------------------------------
 st.write("---")
-st.write("### 🗑️ Data Management")
-st.warning("⚠️ These actions cannot be undone! Use with caution.")
+st.write("### Data Management")
+st.warning("These actions cannot be undone. Use with caution.")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -248,28 +303,28 @@ def confirm_and_clear(key, table_names, display_name):
             conn.execute(f"DELETE FROM {table}")
         conn.commit()
         conn.close()
-        st.success(f"✅ {display_name} cleared!")
+        st.success(f"{display_name} cleared")
         st.session_state[confirm_key] = False
         st.rerun()
     else:
         # First click - ask for confirmation
         st.session_state[confirm_key] = True
-        st.warning("⚠️ Click again to confirm")
+        st.warning("Click again to confirm")
 
 with col1:
-    if st.button("🗑️ Clear Bank Data", type="secondary", use_container_width=True):
+    if st.button("Clear Bank Data", type="secondary", use_container_width=True):
         confirm_and_clear('bank', ['bank_transactions'], 'Bank transactions')
 
 with col2:
-    if st.button("🗑️ Clear Contracts", type="secondary", use_container_width=True):
+    if st.button("Clear Contracts", type="secondary", use_container_width=True):
         confirm_and_clear('contracts', ['contracts'], 'Contracts')
 
 with col3:
-    if st.button("🗑️ Clear Invoices", type="secondary", use_container_width=True):
+    if st.button("Clear Invoices", type="secondary", use_container_width=True):
         confirm_and_clear('invoices', ['invoice_items', 'invoices'], 'Invoices')
 
 with col4:
-    if st.button("🗑️ Clear ALL Data", type="secondary", use_container_width=True):
+    if st.button("Clear All Data", type="secondary", use_container_width=True):
         confirm_and_clear('all', [
             'handshakes', 'settlements', 'outgoing_payments',
             'invoice_items', 'invoices', 'contracts',

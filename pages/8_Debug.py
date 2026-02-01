@@ -19,6 +19,7 @@ import streamlit as st
 import pandas as pd
 from database.connection import get_db_connection
 from database.schema import get_table_info
+from utils.styling import apply_minimal_style
 
 # -----------------------------------------------------------------------------
 # PAGE CONFIGURATION
@@ -26,13 +27,17 @@ from database.schema import get_table_info
 st.set_page_config(
     page_title="Debug - Pinball V3",
     page_icon="🐞",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Apply minimal styling
+apply_minimal_style()
 
 # -----------------------------------------------------------------------------
 # PAGE HEADER
 # -----------------------------------------------------------------------------
-st.title("🐞 Debug - Database Viewer")
+st.title("Debug - Database Viewer")
 st.caption("View all database tables and their contents for debugging purposes.")
 
 # -----------------------------------------------------------------------------

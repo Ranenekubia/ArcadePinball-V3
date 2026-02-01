@@ -400,13 +400,15 @@ def create_contract(contract_data):
 # BANK TRANSACTIONS QUERIES
 # =============================================================================
 
-def load_bank_transactions(search=None, unmatched_only=False):
+def load_bank_transactions(search=None, unmatched_only=False, incoming_only=False, outgoing_only=False):
     """
     Load bank transactions.
     
     PARAMETERS:
         search (str): Search in description
         unmatched_only (bool): If True, only return unmatched transactions
+        incoming_only (bool): If True, only return payments IN (amount > 0); exclude debits/paid out
+        outgoing_only (bool): If True, only return payments OUT (amount < 0); for Outgoing page
     
     RETURNS:
         pd.DataFrame: Bank transactions
@@ -423,6 +425,12 @@ def load_bank_transactions(search=None, unmatched_only=False):
         
         if unmatched_only:
             query += " AND is_matched = 0"
+        
+        if incoming_only:
+            query += " AND amount > 0"
+        
+        if outgoing_only:
+            query += " AND amount < 0"
         
         query += " ORDER BY date DESC"
         
@@ -554,6 +562,48 @@ def load_invoices(search=None, unpaid_only=False):
         
     except Exception as e:
         print(f"[ERROR] Error loading invoices: {e}")
+        return pd.DataFrame()
+
+
+def load_invoices_with_show_details(search=None, unpaid_only=False):
+    """
+    Load invoices with artist and show/event details from linked show.
+    Use this when you need to display artist name and show name in the UI.
+    
+    RETURNS:
+        pd.DataFrame: Invoices with columns: all invoice columns plus
+                      artist, event_name, venue (from shows table)
+    """
+    try:
+        conn = get_db_connection()
+        
+        query = """
+            SELECT i.*,
+                   s.artist,
+                   s.event_name,
+                   s.venue
+            FROM invoices i
+            LEFT JOIN shows s ON i.show_id = s.show_id
+            WHERE 1=1
+        """
+        params = []
+        
+        if search:
+            query += " AND (i.invoice_number LIKE ? OR i.promoter_name LIKE ? OR s.artist LIKE ? OR s.event_name LIKE ? OR s.venue LIKE ?)"
+            search_term = f"%{search}%"
+            params.extend([search_term] * 5)
+        
+        if unpaid_only:
+            query += " AND i.is_paid = 0"
+        
+        query += " ORDER BY i.invoice_date DESC"
+        
+        df = pd.read_sql_query(query, conn, params=params if params else None)
+        conn.close()
+        return df
+        
+    except Exception as e:
+        print(f"[ERROR] Error loading invoices with show details: {e}")
         return pd.DataFrame()
 
 
@@ -769,6 +819,9 @@ def load_handshakes(bank_id=None, invoice_id=None):
                 i.promoter_name,
                 i.total_gross as invoice_total,
                 i.currency as invoice_currency,
+                s.artist,
+                s.event_name,
+                s.venue,
                 h.bank_amount_applied,
                 h.proxy_amount,
                 h.note,
@@ -776,6 +829,7 @@ def load_handshakes(bank_id=None, invoice_id=None):
             FROM handshakes h
             JOIN bank_transactions b ON h.bank_id = b.bank_id
             JOIN invoices i ON h.invoice_id = i.invoice_id
+            LEFT JOIN shows s ON i.show_id = s.show_id
             WHERE 1=1
         """
         params = []

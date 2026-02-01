@@ -27,10 +27,11 @@ from datetime import datetime
 from database import (
     init_db,
     load_bank_transactions,
-    load_invoices,
+    load_invoices_with_show_details,
     load_handshakes,
     create_handshake
 )
+from utils.styling import apply_minimal_style
 
 # -----------------------------------------------------------------------------
 # PAGE CONFIGURATION
@@ -38,54 +39,43 @@ from database import (
 st.set_page_config(
     page_title="Match Transactions - Pinball V3",
     page_icon="🔗",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Apply minimal styling
+apply_minimal_style()
 
 init_db()
 
 # -----------------------------------------------------------------------------
 # PAGE HEADER
 # -----------------------------------------------------------------------------
-st.title("🔗 Match Transactions")
+st.title("Match Transactions")
 st.caption("Link bank payments to invoices. Select ONE payment and ONE or MORE invoices.")
 
 # -----------------------------------------------------------------------------
 # LOAD DATA
 # -----------------------------------------------------------------------------
-bank_df = load_bank_transactions()
-invoice_df = load_invoices()
+# Only show incoming payments (amount > 0); outgoing transactions have no invoices to match
+bank_df = load_bank_transactions(incoming_only=True)
+invoice_df = load_invoices_with_show_details()
 handshake_df = load_handshakes()
 
 # -----------------------------------------------------------------------------
-# FILTER OUT ALREADY MATCHED ITEMS
+# MATCHING SPACE: Only unmatched payments and unpaid invoices
 # -----------------------------------------------------------------------------
-# Hide bank transactions and invoices that are already fully matched.
-# This keeps the lists clean and focused on what needs attention.
+# Matched items are not shown here; they appear in the Match table (handshakes) below.
 
 if len(handshake_df) > 0:
-    # Bank transactions: Hide if already in a handshake
-    # (One bank tx can only be used once in our model)
-    matched_bank_ids = handshake_df['bank_id'].unique().tolist()
-    available_bank = bank_df[~bank_df['bank_id'].isin(matched_bank_ids)]
-    
-    # Invoices: Hide if fully paid
-    # (Invoices can have multiple partial payments, so check paid status)
-    paid_invoice_ids = invoice_df[invoice_df['is_paid'] == 1]['invoice_id'].tolist()
-    available_invoices = invoice_df[~invoice_df['invoice_id'].isin(paid_invoice_ids)]
+    matched_bank_ids = set(handshake_df['bank_id'].unique())
+    available_bank = bank_df[~bank_df['bank_id'].isin(matched_bank_ids)].copy()
 else:
-    available_bank = bank_df
-    available_invoices = invoice_df
+    matched_bank_ids = set()
+    available_bank = bank_df.copy()
 
-# Check if we have data to work with
-if len(available_bank) == 0:
-    st.info("🎉 All bank transactions are matched!")
-    st.write("Import more transactions or view existing matches on the Handshakes page.")
-    st.stop()
-
-if len(available_invoices) == 0:
-    st.info("🎉 All invoices are paid!")
-    st.write("Import more invoices or view existing matches on the Handshakes page.")
-    st.stop()
+paid_invoice_ids = set(invoice_df[invoice_df['is_paid'] == 1]['invoice_id'].tolist()) if len(invoice_df) > 0 else set()
+available_invoices = invoice_df[~invoice_df['invoice_id'].isin(paid_invoice_ids)].copy()
 
 # -----------------------------------------------------------------------------
 # THREE-COLUMN LAYOUT
@@ -93,14 +83,14 @@ if len(available_invoices) == 0:
 col_bank, col_match, col_invoice = st.columns([2, 3, 2])
 
 # -----------------------------------------------------------------------------
-# LEFT COLUMN: BANK TRANSACTIONS
+# LEFT COLUMN: BANK TRANSACTIONS (grouped by import / same system)
 # -----------------------------------------------------------------------------
 with col_bank:
-    st.write("### 1️⃣ Select Bank Payment")
+    st.write("### Select Bank Payment")
     
     # Search filter
     bank_search = st.text_input(
-        "🔍 Search bank transactions",
+        "Search bank transactions",
         key="bank_search",
         placeholder="Type to filter..."
     )
@@ -109,70 +99,112 @@ with col_bank:
     if bank_search:
         filtered_bank = available_bank[
             available_bank['description'].str.contains(bank_search, case=False, na=False)
-        ]
+        ].copy()
     else:
-        filtered_bank = available_bank
+        filtered_bank = available_bank.copy()
     
-    # Show count
-    st.caption(f"Showing {len(filtered_bank)} of {len(available_bank)} transactions")
+    # Group key: same import_batch = same system; else group by date
+    def _bank_group_key(row):
+        batch = row.get('import_batch')
+        if pd.notna(batch) and str(batch).strip():
+            return str(batch).strip()
+        return f"date_{row.get('date', '')}"
     
-    # Radio buttons for single selection
+    filtered_bank['_group'] = filtered_bank.apply(_bank_group_key, axis=1)
+    filtered_bank = filtered_bank.sort_values(['_group', 'date', 'bank_id'])
+    bank_ids_ordered = filtered_bank['bank_id'].tolist()
+    
+    def _group_label(gkey, count):
+        if gkey.startswith("date_"):
+            d = gkey.replace("date_", "")
+            return f"Same day ({d}) — {count} payment(s)"
+        try:
+            parts = gkey.replace("batch_", "").split("_")
+            if len(parts) >= 1 and len(parts[0]) == 8:
+                d = datetime.strptime(parts[0], "%Y%m%d").strftime("%d %b %Y")
+                return f"Same statement ({d}) — {count} payment(s)"
+        except Exception:
+            pass
+        return f"Same import — {count} payment(s)"
+    
+    group_counts = filtered_bank['_group'].value_counts()
+    bank_options = {}
+    prev_g = None
+    for bid in bank_ids_ordered:
+        row = filtered_bank[filtered_bank['bank_id'] == bid].iloc[0]
+        g = row['_group']
+        count = group_counts.get(g, 1)
+        line = f"#{row['bank_id']} | {row['currency']} {row['amount']:,.2f} | {(row['description'] or '')[:40]}"
+        if g != prev_g:
+            header = _group_label(g, count)
+            bank_options[bid] = f"▸ {header} · {line}"
+        else:
+            bank_options[bid] = f"    {line}"
+        prev_g = g
+    
+    st.caption(f"Unmatched only: {len(filtered_bank)} payment(s)")
+    
     if len(filtered_bank) > 0:
-        # Create display labels
-        bank_options = {}
-        for _, row in filtered_bank.iterrows():
-            label = f"#{row['bank_id']} | {row['currency']} {row['amount']:,.2f} | {row['description'][:40]}"
-            bank_options[row['bank_id']] = label
-        
         selected_bank_id = st.radio(
             "Select a transaction:",
-            options=list(bank_options.keys()),
+            options=bank_ids_ordered,
             format_func=lambda x: bank_options[x],
             key="bank_radio"
         )
         
-        # Get full row for selected bank
         selected_bank = filtered_bank[filtered_bank['bank_id'] == selected_bank_id].iloc[0]
-        
-        # Show selection summary
         st.success(f"Selected: **{selected_bank['currency']} {selected_bank['amount']:,.2f}**")
     else:
-        st.warning("No transactions match your search.")
+        if len(available_bank) == 0:
+            st.info("No unmatched payments. Matched items are in the table below.")
+        else:
+            st.warning("No transactions match your search.")
         selected_bank = None
 
 # -----------------------------------------------------------------------------
 # RIGHT COLUMN: INVOICES
 # -----------------------------------------------------------------------------
 with col_invoice:
-    st.write("### 2️⃣ Select Invoice(s)")
+    st.write("### Select Invoice(s)")
     
     # Search filter
     inv_search = st.text_input(
-        "🔍 Search invoices",
+        "Search invoices",
         key="inv_search",
         placeholder="Type to filter..."
     )
     
-    # Apply search filter
+    # Apply search filter (include artist, event_name, venue)
     if inv_search:
-        filtered_inv = available_invoices[
-            available_invoices['invoice_number'].str.contains(inv_search, case=False, na=False) |
-            available_invoices['promoter_name'].fillna('').str.contains(inv_search, case=False, na=False)
-        ]
+        inv_search_lower = inv_search.lower()
+        def matches_inv(row):
+            for col in ['invoice_number', 'promoter_name', 'artist', 'event_name', 'venue']:
+                val = row.get(col)
+                if pd.notna(val) and inv_search_lower in str(val).lower():
+                    return True
+            return False
+        filtered_inv = available_invoices[available_invoices.apply(matches_inv, axis=1)]
     else:
         filtered_inv = available_invoices
     
-    st.caption(f"Showing {len(filtered_inv)} of {len(available_invoices)} invoices")
+    st.caption(f"Unpaid only: {len(filtered_inv)} invoice(s)")
     
     # Multi-select for invoices
     selected_invoices = []
     
     if len(filtered_inv) > 0:
-        # Create display labels
+        # Create display labels: artist, show/event name, invoice number, currency, amount; mark paid so full log is visible
         inv_options = {}
         for _, row in filtered_inv.iterrows():
-            promoter = row.get('promoter_name', 'Unknown') or 'Unknown'
-            label = f"{row['invoice_number']} | {row['currency']} {row['total_gross']:,.2f} | {promoter[:20]}"
+            artist = (row.get('artist') or '—') if pd.notna(row.get('artist')) else '—'
+            show_name = (row.get('event_name') or row.get('venue') or '—')
+            if pd.isna(show_name):
+                show_name = '—'
+            show_name = str(show_name)[:25]
+            inv_num = row['invoice_number']
+            curr = row['currency']
+            amt = row['total_gross']
+            label = f"{artist} | {show_name} | {inv_num} | {curr} {amt:,.2f}"
             inv_options[row['invoice_id']] = label
         
         selected_inv_ids = st.multiselect(
@@ -189,15 +221,24 @@ with col_invoice:
         
         if selected_invoices:
             total_selected = sum(inv['total_gross'] for inv in selected_invoices)
-            st.success(f"Selected {len(selected_invoices)} invoices: **{selected_invoices[0]['currency']} {total_selected:,.2f}**")
+            curr = selected_invoices[0]['currency']
+            st.success(f"Selected {len(selected_invoices)} invoices: **{curr} {total_selected:,.2f}**")
+            # Show detail for each selected invoice: artist, show name, currency, amount
+            for inv in selected_invoices:
+                artist = inv.get('artist') or '—'
+                show_name = inv.get('event_name') or inv.get('venue') or '—'
+                st.caption(f"{artist} · {show_name} · {inv['currency']} {inv['total_gross']:,.2f}")
     else:
-        st.warning("No invoices match your search.")
+        if len(available_invoices) == 0:
+            st.info("No unpaid invoices. Matched items are in the table below.")
+        else:
+            st.warning("No invoices match your search.")
 
 # -----------------------------------------------------------------------------
 # MIDDLE COLUMN: MATCHING LOGIC
 # -----------------------------------------------------------------------------
 with col_match:
-    st.write("### 3️⃣ Match & Approve")
+    st.write("### Match & Approve")
     st.write("---")
     
     if selected_bank is not None and len(selected_invoices) > 0:
@@ -216,10 +257,10 @@ with col_match:
         col_a, col_b = st.columns(2)
         
         with col_a:
-            st.metric("💳 Bank Payment", f"{bank_currency} {bank_amount:,.2f}")
+            st.metric("Bank Payment", f"{bank_currency} {bank_amount:,.2f}")
         
         with col_b:
-            st.metric(f"📄 Invoices ({len(selected_invoices)})", f"{inv_currency} {invoice_total:,.2f}")
+            st.metric(f"Invoices ({len(selected_invoices)})", f"{inv_currency} {invoice_total:,.2f}")
         
         # -----------------------------------------------------------------
         # CALCULATE DIFFERENCE
@@ -227,14 +268,14 @@ with col_match:
         difference = invoice_total - bank_amount
         
         if abs(difference) < 0.01:
-            st.success("✅ **Perfect Match!** Amounts are equal.")
+            st.success("**Perfect Match!** Amounts are equal.")
             match_status = "perfect"
         elif difference > 0:
-            st.warning(f"⚠️ **Short by {inv_currency} {difference:,.2f}**")
+            st.warning(f"**Short by {inv_currency} {difference:,.2f}**")
             st.caption("Invoice total is more than bank payment.")
             match_status = "short"
         else:
-            st.info(f"ℹ️ **Over by {inv_currency} {abs(difference):,.2f}**")
+            st.info(f"**Over by {inv_currency} {abs(difference):,.2f}**")
             st.caption("Bank payment is more than invoice total.")
             match_status = "over"
         
@@ -275,58 +316,48 @@ with col_match:
         st.write(f"**Balance: {inv_currency} {final_balance:,.2f}**")
         
         if abs(final_balance) < 0.01:
-            st.success("✅ Balanced!")
+            st.success("Balanced")
         
         # -----------------------------------------------------------------
         # APPROVE BUTTON
         # -----------------------------------------------------------------
         st.write("---")
         
-        if st.button("✅ Approve Match(es)", type="primary", use_container_width=True):
+        if st.button("Approve Match(es)", type="primary", use_container_width=True):
             try:
                 success_count = 0
                 remaining_bank = bank_amount
-                
-                # Create a handshake for each selected invoice
+
                 for idx, inv in enumerate(selected_invoices):
                     inv_id = int(inv['invoice_id'])
                     inv_amount = float(inv['total_gross'])
                     b_id = int(selected_bank['bank_id'])
-                    
-                    # How much of the bank payment applies to this invoice?
-                    # Take the minimum of remaining bank funds and invoice amount
                     amount_to_apply = min(remaining_bank, inv_amount)
-                    
-                    # Proxy goes on the FIRST invoice only
                     this_proxy = proxy_amount if idx == 0 else 0.0
-                    
-                    # Create the handshake
+
                     result = create_handshake(
                         bank_id=b_id,
                         invoice_id=inv_id,
                         bank_amount_applied=amount_to_apply,
                         proxy_amount=this_proxy,
                         note=note,
-                        created_by="User"  # Could be actual user name
+                        created_by="User"
                     )
-                    
+
                     if result:
                         success_count += 1
                         remaining_bank -= amount_to_apply
-                
-                # Show result
+
                 st.balloons()
-                st.success(f"🎉 Created {success_count} match(es) successfully!")
-                
-                # Refresh the page to update lists
+                st.success(f"Created {success_count} match(es) successfully")
                 st.rerun()
-                
+
             except Exception as e:
-                st.error(f"❌ Error creating matches: {str(e)}")
+                st.error(f"Error creating matches: {str(e)}")
     
     else:
         # Show instructions if nothing selected
-        st.info("👈 Select a bank payment on the left and invoice(s) on the right.")
+        st.info("Select a bank payment on the left and invoice(s) on the right")
         
         st.write("**How Matching Works:**")
         st.write("1. Select ONE bank payment (money received)")
@@ -335,6 +366,19 @@ with col_match:
         st.write("4. Add proxy adjustment if needed")
         st.write("5. Click Approve to create the match")
 
+# -----------------------------------------------------------------------------
+# MATCH TABLE (Handshakes) — matched items shown below
+# -----------------------------------------------------------------------------
+st.write("---")
+st.write("### Match table (Handshakes)")
+st.caption("Once matched, payments and invoices move here. Full list on the Handshakes page.")
+if len(handshake_df) > 0:
+    # Show key columns for readability
+    display_cols = ['bank_date', 'bank_desc', 'bank_amount', 'bank_currency', 'invoice_number', 'artist', 'event_name', 'bank_amount_applied', 'note', 'created_at']
+    cols_present = [c for c in display_cols if c in handshake_df.columns]
+    st.dataframe(handshake_df[cols_present] if cols_present else handshake_df, use_container_width=True, hide_index=True)
+else:
+    st.info("No matches yet. Create matches above.")
 
 # =============================================================================
 # LEARNING NOTES: SESSION STATE

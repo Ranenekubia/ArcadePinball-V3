@@ -1,0 +1,5 @@
+Invoice Number,Contract Number,Invoice Date,Description,Value,Currency
+INV-2026-001,900100,2026-03-01,Deposit for London Warehouse,1000,GBP
+INV-2026-002,900100,2026-05-01,Balance for London Warehouse,4000,GBP
+INV-2026-003,900101,2026-03-01,Full Fee Berlin,3200,EUR
+INV-2026-004,900102,2026-04-01,Deposit Ibiza,7500,EUR

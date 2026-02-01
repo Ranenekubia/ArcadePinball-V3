@@ -33,6 +33,7 @@ from database import (
     confirm_settlement
 )
 from utils import calculate_show_settlement
+from utils.styling import apply_minimal_style
 from config import SETTLEMENT_STATUSES
 
 # -----------------------------------------------------------------------------
@@ -41,15 +42,19 @@ from config import SETTLEMENT_STATUSES
 st.set_page_config(
     page_title="Settlement Report - Pinball V3",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Apply minimal styling
+apply_minimal_style()
 
 init_db()
 
 # -----------------------------------------------------------------------------
 # PAGE HEADER
 # -----------------------------------------------------------------------------
-st.title("📊 Settlement Report")
+st.title("Settlement Report")
 st.caption("Full show settlement view with artist payment confirmation.")
 
 # -----------------------------------------------------------------------------

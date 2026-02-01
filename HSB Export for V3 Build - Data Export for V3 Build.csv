@@ -1,0 +1,7 @@
+Date,Type,Description,Paid Out,Paid In,Currency
+2026-03-02,CR,Payment INV-2026-001 London Warehouse,,1000,GBP
+2026-03-05,DR,Travelodge London - Hotel for Kerri,150,,GBP
+2026-04-05,CR,Ibiza Opening Party Deposit,,7500,EUR
+2026-05-02,CR,London Warehouse Balance,,4000,GBP
+2026-05-03,DR,EasyJet Berlin Flight,200,,EUR
+2026-06-01,DR,Artist Payment: Minna Advance,1500,,EUR

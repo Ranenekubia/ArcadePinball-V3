@@ -21,6 +21,7 @@
 # =============================================================================
 
 import streamlit as st
+from utils.sidebar_nav import inject_sidebar_collapsed
 
 # -----------------------------------------------------------------------------
 # PAGE CONFIGURATION
@@ -34,13 +35,16 @@ st.set_page_config(
     layout="wide"                     # Use full width of browser
 )
 
+# Sidebar style (collapsed icon bar) so it applies on every load
+inject_sidebar_collapsed()
+
 # -----------------------------------------------------------------------------
 # REDIRECT TO DASHBOARD
 # -----------------------------------------------------------------------------
 # We want users to land on the Dashboard, not this blank page.
 # st.switch_page() navigates to another page in the app.
 
-st.switch_page("pages/1_📊_Dashboard.py")
+st.switch_page("pages/1_Dashboard.py")
 
 # =============================================================================
 # LEARNING NOTES: STREAMLIT BASICS

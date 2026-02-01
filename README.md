@@ -6,12 +6,13 @@ A Streamlit web application for managing talent agency bookings, invoices, bank 
 
 - **Shows Management**: Central hub for all artist bookings and performances
 - **Invoice Tracking**: Create and track invoices sent to promoters
-- **Bank Reconciliation**: Match bank transactions to invoices (handshakes)
+- **Bank Reconciliation**: Match bank transactions to invoices (handshakes); payments grouped by import batch or date
 - **Artist Settlements**: Calculate and track payments to artists
 - **Outgoing Payments**: Record and manage expenses (hotels, flights, etc.)
 - **Real-time Dashboard**: Overview of financial status and pending actions
 - **Data Import**: Import contracts, invoices, and bank transactions from CSV
 - **Debug Tools**: Full database inspection and query interface
+- **Collapsed Sidebar**: Icon-only nav that expands on hover; navigation uses session state (no callback no-op)
 
 ## Database Schema
 
@@ -28,14 +29,30 @@ The application uses SQLite with 8 interconnected tables:
 
 ## Pages
 
-1. **📊 Dashboard** - Overview and quick stats
-2. **📥 Import** - Import contracts, invoices, bank data
-3. **🔗 Match** - Link bank payments to invoices
-4. **🎭 Shows** - View and search all shows
-5. **💸 Outgoing** - Manage outgoing payments
-6. **📊 Settlement** - Artist settlement reports
-7. **🤝 Handshakes** - View reconciliation matches
-8. **🐞 Debug** - Database inspection and tools
+Pages use ASCII-only filenames for reliable navigation and deployment:
+
+| Page       | File               | Description                          |
+|-----------|--------------------|--------------------------------------|
+| Dashboard | `1_Dashboard.py`   | Overview and quick stats             |
+| Import    | `2_Import.py`      | Import contracts, invoices, bank data |
+| Match     | `3_Match.py`       | Link bank payments to invoices       |
+| Shows     | `4_Shows.py`       | View and search all shows            |
+| Outgoing  | `5_Outgoing.py`    | Manage outgoing payments             |
+| Settlement| `6_Settlement.py`  | Artist settlement reports            |
+| Handshakes| `7_Handshakes.py`  | View reconciliation matches          |
+| Debug     | `8_Debug.py`       | Database inspection and tools        |
+
+## Documentation
+
+**Flows, logic, and reasoning** for every page are in **[docs/DOCUMENTATION.md](docs/DOCUMENTATION.md)**. It covers:
+
+- Platform overview and data model
+- App entry and sidebar navigation
+- Per-page: purpose, flow, logic, reasoning
+- Shared components and config
+- **How to keep docs updated** when you change the platform
+
+**When you update the platform:** update the relevant sections in `docs/DOCUMENTATION.md` (and this README if needed) so the docs stay the single source of truth.
 
 ## Installation
 
@@ -98,11 +115,24 @@ Create a `.streamlit/secrets.toml` file for production:
 ### Bank Transactions (HSBC)
 - CSV format with columns: `date`, `description`, `amount`, etc.
 
+## Project Structure
+
+- **`app.py`** – Main entry; sets page config, injects sidebar, redirects to Dashboard
+- **`pages/`** – Multi-page app pages (ASCII filenames: `1_Dashboard.py`, `2_Import.py`, etc.)
+- **`utils/`** – Shared UI and logic:
+  - **`sidebar_nav.py`** – Collapsed icon sidebar (hover to expand), session-state navigation
+  - **`app_theme.py`** – App-wide theme and layout
+  - **`styling.py`** – Shared CSS and styling
+  - **`calculations.py`** – Settlement and financial helpers
+- **`database/`** – Schema, connection, and queries
+- **`importers/`** – CSV importers for contracts, invoices, bank data
+- **`config/`** – Settings and configuration
+
 ## Usage Notes
 
 - **Fresh Database**: Each deployment starts with a fresh database unless you configure persistent storage
 - **Data Export**: Use the export buttons on each page to download CSV backups
-- **Debug Page**: Available at `/8_🐞_Debug` for troubleshooting
+- **Debug Page**: Available at `/8_Debug` for troubleshooting
 
 ## License
 

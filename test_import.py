@@ -12,6 +12,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from database.schema import init_db
+from database.queries import load_invoices, load_shows
 from importers.bank_importer import BankImporter
 from importers.contract_importer import ContractImporter
 from importers.invoice_importer import InvoiceImporter
@@ -60,6 +61,39 @@ def main():
     else:
         print(f"    ERROR: File not found: {INVOICE_FILE}")
     
+    # Verify invoice→show link by contract_number
+    print("\n[5] Verifying invoice->show link (contract_number)...")
+    invoices_df = load_invoices()
+    shows_df = load_shows()
+    if len(invoices_df) == 0:
+        print("    No invoices to verify.")
+    elif len(shows_df) == 0:
+        print("    No shows in DB; import contracts first so invoices can link.")
+    else:
+        show_contracts = set()
+        if "contract_number" in shows_df.columns:
+            for v in shows_df["contract_number"].dropna():
+                show_contracts.add(str(v).strip())
+        linked = 0
+        unlinked = 0
+        for _, row in invoices_df.iterrows():
+            cnum = row.get("contract_number")
+            if cnum is None or (isinstance(cnum, float) and (cnum != cnum or cnum == 0)):
+                continue
+            cnum = str(cnum).strip()
+            if not cnum or cnum not in show_contracts:
+                continue
+            sid = row.get("show_id")
+            if sid is not None and str(sid) != "nan" and int(float(sid)) > 0:
+                linked += 1
+            else:
+                unlinked += 1
+        print(f"    Invoices with matching contract_number: {linked} linked to show, {unlinked} not linked")
+        if unlinked > 0 and linked == 0:
+            print("    WARNING: No invoices linked to shows. Check that contract_number matches between contract and invoice CSVs.")
+        elif linked > 0:
+            print("    OK: At least one invoice attached to show via contract_number.")
+
     print("\n" + "=" * 60)
     print("IMPORT COMPLETE!")
     print("=" * 60)

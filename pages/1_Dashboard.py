@@ -32,6 +32,7 @@ from database import (
     load_outgoing_payments
 )
 from utils import calculate_reconciliation_summary
+from utils.styling import apply_minimal_style
 
 # -----------------------------------------------------------------------------
 # PAGE CONFIGURATION
@@ -39,8 +40,12 @@ from utils import calculate_reconciliation_summary
 st.set_page_config(
     page_title="Dashboard - Pinball V3",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Apply minimal styling
+apply_minimal_style()
 
 # -----------------------------------------------------------------------------
 # INITIALIZE DATABASE
@@ -52,7 +57,7 @@ init_db()
 # -----------------------------------------------------------------------------
 # PAGE HEADER
 # -----------------------------------------------------------------------------
-st.title("📊 Dashboard")
+st.title("Dashboard")
 st.caption("Overview of your show reconciliation data")
 
 # -----------------------------------------------------------------------------
@@ -74,7 +79,7 @@ outgoing_df = load_outgoing_payments()
 # Show key metrics at the top of the page.
 # st.metric() displays a number with optional delta (change indicator).
 
-st.write("### 📈 Quick Stats")
+st.write("### Quick Stats")
 
 # Create 5 columns for stats
 col1, col2, col3, col4, col5 = st.columns(5)
@@ -128,7 +133,7 @@ with col5:
 
 if len(invoices_df) > 0:
     st.write("---")
-    st.write("### 📊 Payment Status Overview")
+    st.write("### Payment Status")
     
     if len(handshakes_df) > 0:
         summary = calculate_reconciliation_summary(invoices_df, handshakes_df)
@@ -170,14 +175,15 @@ if len(invoices_df) > 0:
     total = len(invoices_df)
     if total > 0:
         paid_pct = status_counts.get('PAID', 0) / total
-        st.progress(paid_pct, text=f"Overall: {paid_pct*100:.0f}% fully paid")
+        st.caption(f"Overall: {paid_pct*100:.0f}% fully paid")
+        st.progress(paid_pct)
 
 # -----------------------------------------------------------------------------
 # SHOW STATUS OVERVIEW
 # -----------------------------------------------------------------------------
 if len(shows_df) > 0:
     st.write("---")
-    st.write("### 🎭 Show Status Overview")
+    st.write("### Show Status")
     
     show_status_counts = shows_df['status'].value_counts()
     settlement_status_counts = shows_df['settlement_status'].value_counts()
@@ -200,7 +206,7 @@ if len(shows_df) > 0:
 # Highlight items that need attention.
 
 st.write("---")
-st.write("### ⚠️ Action Required")
+st.write("### Action Required")
 
 actions_needed = []
 
@@ -214,18 +220,18 @@ if len(invoices_df) > 0:
     
     if len(unpaid) > 0:
         total_outstanding = unpaid['total_gross'].sum()
-        actions_needed.append(f"💰 {len(unpaid)} invoices unpaid (£{total_outstanding:,.2f} outstanding)")
+        actions_needed.append(f"{len(unpaid)} invoices unpaid (£{total_outstanding:,.2f} outstanding)")
 
 # Check for unmatched bank transactions
 unmatched_bank = bank_df[bank_df['is_matched'] == 0] if len(bank_df) > 0 else pd.DataFrame()
 if len(unmatched_bank) > 0:
-    actions_needed.append(f"💳 {len(unmatched_bank)} bank transactions need matching")
+    actions_needed.append(f"{len(unmatched_bank)} bank transactions need matching")
 
 # Check for pending settlements
 if len(settlements_df) > 0:
     pending = settlements_df[settlements_df['status'] == 'Pending']
     if len(pending) > 0:
-        actions_needed.append(f"🎭 {len(pending)} artist settlements pending")
+        actions_needed.append(f"{len(pending)} artist settlements pending")
 
 # Display actions or success message
 if actions_needed:
@@ -233,25 +239,22 @@ if actions_needed:
         st.warning(action)
 else:
     if len(invoices_df) > 0:
-        st.success("🎉 All caught up! No immediate actions needed.")
+        st.success("All caught up! No immediate actions needed.")
     else:
-        st.info("📥 Get started by importing data on the Import page.")
+        st.info("Get started by importing data on the Import page.")
 
 # -----------------------------------------------------------------------------
 # RECENT ACTIVITY
 # -----------------------------------------------------------------------------
 st.write("---")
-st.write("### 🕒 Recent Activity")
+st.write("### Recent Activity")
 
 if len(handshakes_df) > 0:
     # Show last 5 matches
     recent = handshakes_df.head(5)
     for _, row in recent.iterrows():
         with st.container():
-            st.write(
-                f"🤝 Matched Bank #{row['bank_id']} → Invoice {row['invoice_number']} | "
-                f"{row['bank_currency']} {row['bank_amount_applied']:,.2f}"
-            )
+            st.write(f"Bank #{row['bank_id']} → Invoice {row['invoice_number']} | {row['bank_currency']} {row['bank_amount_applied']:,.2f}")
             st.caption(f"Created: {row['created_at']}")
 else:
     st.info("No recent activity. Create matches on the Match page.")
@@ -260,25 +263,25 @@ else:
 # QUICK NAVIGATION
 # -----------------------------------------------------------------------------
 st.write("---")
-st.write("### 🚀 Quick Actions")
+st.write("### Quick Actions")
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    if st.button("📥 Import Data", use_container_width=True):
-        st.switch_page("pages/2_📥_Import.py")
+    if st.button("Import Data", use_container_width=True):
+        st.switch_page("pages/2_Import.py")
 
 with col2:
-    if st.button("🔗 Match Payments", use_container_width=True):
-        st.switch_page("pages/3_🔗_Match.py")
+    if st.button("Match Payments", use_container_width=True):
+        st.switch_page("pages/3_Match.py")
 
 with col3:
-    if st.button("🎭 View Shows", use_container_width=True):
-        st.switch_page("pages/4_🎭_Shows.py")
+    if st.button("View Shows", use_container_width=True):
+        st.switch_page("pages/4_Shows.py")
 
 with col4:
-    if st.button("📊 Settlement Report", use_container_width=True):
-        st.switch_page("pages/6_📊_Settlement.py")
+    if st.button("Settlement Report", use_container_width=True):
+        st.switch_page("pages/6_Settlement.py")
 
 
 # =============================================================================
