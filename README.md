@@ -52,6 +52,8 @@ Pages use ASCII-only filenames for reliable navigation and deployment:
 - Shared components and config
 - **How to keep docs updated** when you change the platform
 
+**Database schema, relationships, and integrity** (tables, columns, FKs, duplicate detection, handshake logic) are in **[docs/DATABASE_OVERVIEW.md](docs/DATABASE_OVERVIEW.md)**.
+
 **When you update the platform:** update the relevant sections in `docs/DOCUMENTATION.md` (and this README if needed) so the docs stay the single source of truth.
 
 ## Installation

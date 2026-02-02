@@ -35,6 +35,8 @@ This document describes how every page works, the logic behind decisions, and ho
 
 **Why handshakes?** One bank payment can pay several invoices (e.g. one transfer for two events). Handshakes record how much of that payment applies to each invoice.
 
+**Full database reference:** For the complete schema (all columns and types), relationships (FKs and cardinality), and **all integrity logic** (constraints, duplicate detection, handshake lifecycle, linking), see **[docs/DATABASE_OVERVIEW.md](DATABASE_OVERVIEW.md)**.
+
 ---
 
 ## 3. App entry and sidebar
