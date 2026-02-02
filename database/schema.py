@@ -435,6 +435,28 @@ def init_db():
         """)
         
         # =====================================================================
+        # MIGRATIONS - Add new columns to existing tables
+        # =====================================================================
+        # SQLite doesn't auto-add columns when schema changes.
+        # These ALTER statements add missing columns to existing databases.
+        # They fail silently if column already exists (we catch the exception).
+        # =====================================================================
+        
+        # Add artist column to invoices (added in V3 update)
+        try:
+            cursor.execute("ALTER TABLE invoices ADD COLUMN artist TEXT")
+            print("[MIGRATION] Added 'artist' column to invoices table")
+            # Populate artist from linked shows for existing invoices
+            cursor.execute("""
+                UPDATE invoices
+                SET artist = (SELECT s.artist FROM shows s WHERE s.show_id = invoices.show_id)
+                WHERE artist IS NULL AND show_id IS NOT NULL
+            """)
+            print("[MIGRATION] Populated artist from linked shows")
+        except Exception:
+            pass  # Column already exists
+        
+        # =====================================================================
         # CREATE INDEXES
         # =====================================================================
         # Indexes make searches faster. Like an index in a book!
