@@ -572,14 +572,20 @@ def load_invoices_with_show_details(search=None, unpaid_only=False):
     
     RETURNS:
         pd.DataFrame: Invoices with columns: all invoice columns plus
-                      artist, event_name, venue (from shows table)
+                      artist (prefers invoice.artist, falls back to show.artist),
+                      event_name, venue (from shows table)
     """
     try:
         conn = get_db_connection()
         
+        # Use COALESCE to prefer invoice's artist over show's artist
         query = """
-            SELECT i.*,
-                   s.artist,
+            SELECT i.invoice_id, i.invoice_number, i.contract_number, i.show_id,
+                   COALESCE(i.artist, s.artist) as artist,
+                   i.from_entity, i.promoter_name, i.payment_bank_details,
+                   i.reference, i.currency, i.total_net, i.total_vat, i.total_gross,
+                   i.invoice_date, i.show_date, i.is_paid, i.paid_amount,
+                   i.balance_remaining, i.import_batch, i.imported_at,
                    s.event_name,
                    s.venue
             FROM invoices i

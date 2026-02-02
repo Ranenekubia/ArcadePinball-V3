@@ -246,6 +246,9 @@ def init_db():
                 contract_number TEXT,
                 show_id INTEGER,
                 
+                -- Artist (stored directly so it shows even if show link is missing)
+                artist TEXT,
+                
                 -- Who sent it and who receives it
                 from_entity TEXT,
                 promoter_name TEXT,

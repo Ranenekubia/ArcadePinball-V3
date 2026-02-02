@@ -193,40 +193,31 @@ with col_invoice:
     selected_invoices = []
     
     if len(filtered_inv) > 0:
-        # Create display labels: description/reference, promoter, invoice number, currency, amount
-        # Prioritize the description (reference) since that's what users care about most
+        # Create display labels: Artist | Description | Invoice Number | Amount
         inv_options = {}
         for _, row in filtered_inv.iterrows():
-            # Description comes from reference field (set during invoice import)
-            desc = row.get('reference') or ''
-            if pd.isna(desc):
-                desc = ''
-            desc = str(desc).strip()[:35]
-            
-            # Get promoter/contact name
-            promoter = row.get('promoter_name') or row.get('from_entity') or ''
-            if pd.isna(promoter):
-                promoter = ''
-            promoter = str(promoter).strip()[:20]
-            
-            # Get artist from linked show (if available)
+            # Get artist (stored on invoice, or from linked show)
             artist = row.get('artist') or ''
             if pd.isna(artist):
                 artist = ''
             artist = str(artist).strip()[:20]
             
+            # Description comes from reference field (set during invoice import)
+            desc = row.get('reference') or ''
+            if pd.isna(desc):
+                desc = ''
+            desc = str(desc).strip()[:30]
+            
             inv_num = row['invoice_number']
             curr = row['currency']
             amt = row['total_gross']
             
-            # Build label: prioritize description, then artist or promoter
+            # Build label: Artist | Description | Invoice Number | Amount
             parts = []
-            if desc:
-                parts.append(desc)
             if artist:
                 parts.append(artist)
-            elif promoter:
-                parts.append(promoter)
+            if desc:
+                parts.append(desc)
             parts.append(inv_num)
             parts.append(f"{curr} {amt:,.2f}")
             
@@ -249,28 +240,23 @@ with col_invoice:
             total_selected = sum(inv['total_gross'] for inv in selected_invoices)
             curr = selected_invoices[0]['currency']
             st.success(f"Selected {len(selected_invoices)} invoices: **{curr} {total_selected:,.2f}**")
-            # Show detail for each selected invoice
+            # Show detail for each selected invoice: Artist · Description · Amount
             for inv in selected_invoices:
+                artist = inv.get('artist') or ''
+                if pd.isna(artist):
+                    artist = ''
+                artist = str(artist).strip()
+                
                 desc = inv.get('reference') or ''
                 if pd.isna(desc):
                     desc = ''
                 desc = str(desc).strip()
                 
-                # Get artist or promoter
-                artist = inv.get('artist') or ''
-                if pd.isna(artist):
-                    artist = ''
-                promoter = inv.get('promoter_name') or ''
-                if pd.isna(promoter):
-                    promoter = ''
-                
-                who = artist if artist else promoter
-                
                 parts = []
+                if artist:
+                    parts.append(artist)
                 if desc:
                     parts.append(desc)
-                if who:
-                    parts.append(who)
                 parts.append(f"{inv['currency']} {inv['total_gross']:,.2f}")
                 
                 st.caption(" · ".join(parts))

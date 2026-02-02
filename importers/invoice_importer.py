@@ -204,6 +204,7 @@ class InvoiceImporter:
                 invoices[inv_num] = {
                     'invoice_number': inv_num,
                     'contract_number': self._get_value(row, col_map.get('contract_number')),
+                    'artist': self._get_value(row, col_map.get('artist')),  # Artist from CSV if present
                     'from_entity': self._get_value(row, col_map.get('from_entity')),
                     'promoter_name': self._get_value(row, col_map.get('promoter_name')),
                     'payment_bank_details': self._get_value(row, col_map.get('payment_bank_details')),
@@ -235,6 +236,7 @@ class InvoiceImporter:
                 invoices[inv_num] = {
                     'invoice_number': inv_num,
                     'contract_number': self._get_value(row, col_map.get('contract_number')),
+                    'artist': self._get_value(row, col_map.get('artist')),  # Artist from CSV if present
                     'from_entity': self._get_value(row, col_map.get('from_entity')),
                     'promoter_name': self._get_value(row, col_map.get('promoter_name')),
                     'payment_bank_details': self._get_value(row, col_map.get('payment_bank_details')),
@@ -299,6 +301,9 @@ class InvoiceImporter:
             # Invoice identification
             'invoice_number': ['invoice number', 'invoice', 'inv', 'invoicenumber'],
             'contract_number': ['contract number', 'contract', 'booking id'],
+            
+            # Artist (can be in CSV directly)
+            'artist': ['artist', 'artist name', 'performer', 'act'],
             
             # Entity info
             'from_entity': ['from entity', 'from', 'sender', 'company'],
@@ -393,14 +398,18 @@ class InvoiceImporter:
                 self.duplicates.append(inv_num)
                 continue
             
-            # Try to find the show this invoice belongs to
-            show_id = self._find_show_for_invoice(invoice)
+            # Try to find the show this invoice belongs to (also gets artist)
+            show_id, show_artist = self._find_show_for_invoice(invoice)
             
             # Prepare invoice data (without line_items)
             invoice_data = {k: v for k, v in invoice.items() if k != 'line_items'}
             invoice_data['import_batch'] = self.batch_id
             if show_id:
                 invoice_data['show_id'] = show_id
+            
+            # Set artist: prefer CSV value, fall back to show's artist
+            if not invoice_data.get('artist') and show_artist:
+                invoice_data['artist'] = show_artist
             
             # Create invoice with line items
             invoice_id = create_invoice(invoice_data, invoice['line_items'])
@@ -423,19 +432,22 @@ class InvoiceImporter:
             match.
         
         RETURNS:
-            int or None: show_id if found, None otherwise
+            tuple: (show_id, artist) or (None, None) if not found
         """
         raw = invoice.get('contract_number')
         if not raw:
-            return None
+            return None, None
         contract_num = str(raw).strip()
         if not contract_num:
-            return None
+            return None, None
         # Match show by contract_number (set when contracts are imported)
         shows_df = load_shows(filters={'contract_number': contract_num})
         if len(shows_df) > 0:
-            return int(shows_df.iloc[0]['show_id'])
-        return None
+            show = shows_df.iloc[0]
+            show_id = int(show['show_id'])
+            artist = show.get('artist') or None
+            return show_id, artist
+        return None, None
     
     def get_import_summary(self):
         """Get detailed import summary."""
