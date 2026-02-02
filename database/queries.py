@@ -719,6 +719,48 @@ def create_invoice(invoice_data, line_items=None):
         return None
 
 
+def relink_invoices_to_shows():
+    """
+    Re-link existing invoices to shows based on contract_number.
+    
+    Use this if invoices were imported before contracts (shows).
+    It finds invoices with matching contract_number to a show and sets show_id.
+    
+    RETURNS:
+        int: Number of invoices linked
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Update invoices: set show_id where contract_number matches a show
+        cursor.execute("""
+            UPDATE invoices
+            SET show_id = (
+                SELECT s.show_id FROM shows s 
+                WHERE TRIM(s.contract_number) = TRIM(invoices.contract_number)
+                LIMIT 1
+            )
+            WHERE show_id IS NULL
+            AND contract_number IS NOT NULL
+            AND EXISTS (
+                SELECT 1 FROM shows s 
+                WHERE TRIM(s.contract_number) = TRIM(invoices.contract_number)
+            )
+        """)
+        
+        linked_count = cursor.rowcount
+        conn.commit()
+        conn.close()
+        
+        print(f"[OK] Re-linked {linked_count} invoices to shows")
+        return linked_count
+        
+    except Exception as e:
+        print(f"[ERROR] Error relinking invoices: {e}")
+        return 0
+
+
 # =============================================================================
 # OUTGOING PAYMENTS QUERIES
 # =============================================================================

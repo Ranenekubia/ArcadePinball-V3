@@ -26,7 +26,8 @@ from database import (
     load_bank_transactions,
     load_invoices,
     load_contracts,
-    load_shows
+    load_shows,
+    relink_invoices_to_shows
 )
 from importers import BankImporter, ContractImporter, InvoiceImporter
 from config import DB_PATH
@@ -284,7 +285,20 @@ with st.expander("Shows — all columns", expanded=False):
 # -----------------------------------------------------------------------------
 st.write("---")
 st.write("### Data Management")
-st.warning("These actions cannot be undone. Use with caution.")
+
+# Re-link invoices to shows (useful if invoices were imported before contracts)
+st.write("**Fix invoice-show links:**")
+st.caption("If invoices show no artist (because they were imported before contracts), click this to re-link them.")
+if st.button("Re-link Invoices to Shows", type="primary", use_container_width=False):
+    linked = relink_invoices_to_shows()
+    if linked > 0:
+        st.success(f"Re-linked {linked} invoice(s) to shows. Refresh the Match page to see artist names.")
+        st.rerun()
+    else:
+        st.info("No invoices needed re-linking (all are already linked or no matching shows found).")
+
+st.write("---")
+st.warning("Clear actions cannot be undone. Use with caution.")
 
 col1, col2, col3, col4 = st.columns(4)
 

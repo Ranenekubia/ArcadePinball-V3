@@ -49,6 +49,7 @@ from .queries import (
     load_invoice_items,
     create_invoice,
     check_invoice_exists,
+    relink_invoices_to_shows,
     
     # Outgoing Payments
     load_outgoing_payments,
