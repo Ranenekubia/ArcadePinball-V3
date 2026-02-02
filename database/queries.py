@@ -1183,7 +1183,7 @@ def confirm_settlement(settlement_id, confirmed_by):
         
         cursor.execute("""
             UPDATE settlements 
-            SET status = 'Confirmed',
+            SET status = 'Settled',
                 confirmed_by = ?,
                 confirmed_at = ?,
                 updated_at = ?

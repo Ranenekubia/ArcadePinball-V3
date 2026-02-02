@@ -226,18 +226,24 @@ if selected_show_id:
         
         if len(show_settlement) > 0:
             current_settlement = show_settlement.iloc[0]
-            st.write(f"**Current Status:** {current_settlement['status']}")
+            status = current_settlement['status']
             
-            if current_settlement['confirmed_by']:
-                st.success(f"✅ Confirmed by {current_settlement['confirmed_by']} on {current_settlement['confirmed_at']}")
+            # Display status
+            if status in ['Settled', 'Confirmed']:
+                st.success(f"**Status: ✅ SETTLED**")
+                if current_settlement['confirmed_by']:
+                    st.write(f"Settled by **{current_settlement['confirmed_by']}** on {current_settlement['confirmed_at'][:10] if current_settlement['confirmed_at'] else 'N/A'}")
+            else:
+                st.write(f"**Current Status:** {status}")
             
-            if current_settlement['status'] != 'Confirmed':
-                confirmer_name = st.text_input("Your Name", placeholder="Enter your name to confirm")
+            # Only show confirm button if not yet settled
+            if status not in ['Settled', 'Confirmed']:
+                confirmer_name = st.text_input("Your Name", placeholder="Enter your name to confirm settlement")
                 
-                if st.button("✅ Confirm Artist Payment", type="primary"):
+                if st.button("✅ Mark as Settled", type="primary"):
                     if confirmer_name:
                         confirm_settlement(current_settlement['settlement_id'], confirmer_name)
-                        st.success("✅ Payment confirmed!")
+                        st.success("✅ Show marked as SETTLED!")
                         st.rerun()
                     else:
                         st.error("Please enter your name.")
@@ -351,8 +357,10 @@ if len(settlements_df) > 0:
         
         # Status emoji
         status = s.get('status', 'Pending')
-        if status == 'Confirmed':
-            status_display = '✅ Confirmed'
+        if status == 'Settled':
+            status_display = '✅ Settled'
+        elif status == 'Confirmed':
+            status_display = '✅ Settled'  # Treat Confirmed as Settled for backwards compat
         elif status == 'Paid':
             status_display = '💰 Paid'
         elif status == 'Partial':
@@ -380,10 +388,10 @@ if len(settlements_df) > 0:
     with col1:
         st.metric("Total Settlements", len(settlements_df))
     with col2:
-        confirmed_count = len(settlements_df[settlements_df['status'] == 'Confirmed'])
-        st.metric("Confirmed", confirmed_count)
+        settled_count = len(settlements_df[settlements_df['status'].isin(['Settled', 'Confirmed'])])
+        st.metric("Settled", settled_count)
     with col3:
-        pending_count = len(settlements_df[settlements_df['status'].isin(['Pending', 'Partial'])])
+        pending_count = len(settlements_df[settlements_df['status'].isin(['Pending', 'Partial', 'Paid'])])
         st.metric("Pending", pending_count)
     with col4:
         total_balance = settlements_df['balance'].sum() if 'balance' in settlements_df.columns else 0
