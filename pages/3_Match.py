@@ -193,27 +193,44 @@ with col_invoice:
     selected_invoices = []
     
     if len(filtered_inv) > 0:
-        # Create display labels: artist, show/event name, description/reference, invoice number, currency, amount
+        # Create display labels: description/reference, promoter, invoice number, currency, amount
+        # Prioritize the description (reference) since that's what users care about most
         inv_options = {}
         for _, row in filtered_inv.iterrows():
-            artist = (row.get('artist') or '—') if pd.notna(row.get('artist')) else '—'
-            show_name = (row.get('event_name') or row.get('venue') or '—')
-            if pd.isna(show_name):
-                show_name = '—'
-            show_name = str(show_name)[:25]
             # Description comes from reference field (set during invoice import)
-            desc = row.get('reference') or row.get('promoter_name') or ''
+            desc = row.get('reference') or ''
             if pd.isna(desc):
                 desc = ''
-            desc = str(desc).strip()[:30]
+            desc = str(desc).strip()[:35]
+            
+            # Get promoter/contact name
+            promoter = row.get('promoter_name') or row.get('from_entity') or ''
+            if pd.isna(promoter):
+                promoter = ''
+            promoter = str(promoter).strip()[:20]
+            
+            # Get artist from linked show (if available)
+            artist = row.get('artist') or ''
+            if pd.isna(artist):
+                artist = ''
+            artist = str(artist).strip()[:20]
+            
             inv_num = row['invoice_number']
             curr = row['currency']
             amt = row['total_gross']
-            # Include description in the label so users see what the invoice is for
+            
+            # Build label: prioritize description, then artist or promoter
+            parts = []
             if desc:
-                label = f"{artist} | {show_name} | {desc} | {inv_num} | {curr} {amt:,.2f}"
-            else:
-                label = f"{artist} | {show_name} | {inv_num} | {curr} {amt:,.2f}"
+                parts.append(desc)
+            if artist:
+                parts.append(artist)
+            elif promoter:
+                parts.append(promoter)
+            parts.append(inv_num)
+            parts.append(f"{curr} {amt:,.2f}")
+            
+            label = " | ".join(parts)
             inv_options[row['invoice_id']] = label
         
         selected_inv_ids = st.multiselect(
@@ -232,18 +249,31 @@ with col_invoice:
             total_selected = sum(inv['total_gross'] for inv in selected_invoices)
             curr = selected_invoices[0]['currency']
             st.success(f"Selected {len(selected_invoices)} invoices: **{curr} {total_selected:,.2f}**")
-            # Show detail for each selected invoice: artist, show name, description, currency, amount
+            # Show detail for each selected invoice
             for inv in selected_invoices:
-                artist = inv.get('artist') or '—'
-                show_name = inv.get('event_name') or inv.get('venue') or '—'
                 desc = inv.get('reference') or ''
                 if pd.isna(desc):
                     desc = ''
                 desc = str(desc).strip()
+                
+                # Get artist or promoter
+                artist = inv.get('artist') or ''
+                if pd.isna(artist):
+                    artist = ''
+                promoter = inv.get('promoter_name') or ''
+                if pd.isna(promoter):
+                    promoter = ''
+                
+                who = artist if artist else promoter
+                
+                parts = []
                 if desc:
-                    st.caption(f"{artist} · {show_name} · {desc} · {inv['currency']} {inv['total_gross']:,.2f}")
-                else:
-                    st.caption(f"{artist} · {show_name} · {inv['currency']} {inv['total_gross']:,.2f}")
+                    parts.append(desc)
+                if who:
+                    parts.append(who)
+                parts.append(f"{inv['currency']} {inv['total_gross']:,.2f}")
+                
+                st.caption(" · ".join(parts))
     else:
         if len(available_invoices) == 0:
             st.info("No unpaid invoices. Matched items are in the table below.")
