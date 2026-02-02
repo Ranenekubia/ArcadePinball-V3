@@ -326,6 +326,71 @@ Arcade Team
             st.session_state['show_email'] = False
             st.rerun()
 
+# =============================================================================
+# ALL SETTLEMENTS TABLE
+# =============================================================================
+st.write("---")
+st.write("### 📋 All Settlements")
+st.caption("Overview of all settlement records. Create settlements from individual show views above.")
+
+if len(settlements_df) > 0:
+    # Build display table with show info
+    display_data = []
+    for _, s in settlements_df.iterrows():
+        # Get show info
+        show_row = shows_df[shows_df['show_id'] == s['show_id']]
+        if len(show_row) > 0:
+            show = show_row.iloc[0]
+            artist = show.get('artist', 'Unknown')
+            venue = show.get('venue', '')
+            perf_date = show.get('performance_date', '')
+        else:
+            artist = s.get('artist', 'Unknown')
+            venue = ''
+            perf_date = ''
+        
+        # Status emoji
+        status = s.get('status', 'Pending')
+        if status == 'Confirmed':
+            status_display = '✅ Confirmed'
+        elif status == 'Paid':
+            status_display = '💰 Paid'
+        elif status == 'Partial':
+            status_display = '🟡 Partial'
+        else:
+            status_display = '⏳ Pending'
+        
+        display_data.append({
+            'Artist': artist,
+            'Venue': venue,
+            'Date': perf_date,
+            'Amount Due': f"£{s.get('amount_due', 0):,.2f}",
+            'Amount Paid': f"£{s.get('amount_paid', 0):,.2f}",
+            'Balance': f"£{s.get('balance', 0):,.2f}",
+            'Status': status_display,
+            'Confirmed By': s.get('confirmed_by', ''),
+            'Confirmed At': s.get('confirmed_at', '')[:10] if s.get('confirmed_at') else '',
+        })
+    
+    settlements_table = pd.DataFrame(display_data)
+    st.dataframe(settlements_table, use_container_width=True, hide_index=True)
+    
+    # Summary metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Settlements", len(settlements_df))
+    with col2:
+        confirmed_count = len(settlements_df[settlements_df['status'] == 'Confirmed'])
+        st.metric("Confirmed", confirmed_count)
+    with col3:
+        pending_count = len(settlements_df[settlements_df['status'].isin(['Pending', 'Partial'])])
+        st.metric("Pending", pending_count)
+    with col4:
+        total_balance = settlements_df['balance'].sum() if 'balance' in settlements_df.columns else 0
+        st.metric("Total Outstanding", f"£{total_balance:,.2f}")
+else:
+    st.info("No settlement records yet. Create settlements from individual show views above.")
+
 
 # =============================================================================
 # LEARNING NOTES: WORKFLOW PATTERNS
